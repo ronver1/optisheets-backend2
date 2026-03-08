@@ -126,19 +126,19 @@ function getAIRecommendations() {
 function readSettings(ss) {
   var sheet = ss.getSheetByName(SETTINGS_SHEET);
   if (!sheet) {
-    showError(
-      "Missing sheet: "" + SETTINGS_SHEET + """,
-      "Please create a sheet named "" + SETTINGS_SHEET + "" with your license key in cell " + PRIVATE_KEY_CELL + ".\n\nSee the README for the full layout."
-    );
+  showError(
+    "Missing sheet: \"" + SETTINGS_SHEET + "\"",
+    "Please create a sheet named \"" + SETTINGS_SHEET + "\" with your license key in cell " + PRIVATE_KEY_CELL + ".\n\nSee the README for the full layout."
+  );
     return null;
   }
 
   var privateKey = String(sheet.getRange(PRIVATE_KEY_CELL).getValue()).trim();
   if (!privateKey) {
-    showError(
-      "License key not found",
-      "Cell " + PRIVATE_KEY_CELL + " on the "" + SETTINGS_SHEET + "" sheet is empty.\n\nPaste your OptiSheets license key there and try again."
-    );
+  showError(
+    "License key not found",
+    "Cell " + PRIVATE_KEY_CELL + " on the \"" + SETTINGS_SHEET + "\" sheet is empty.\n\nPaste your OptiSheets license key there and try again."
+  );
     return null;
   }
 
@@ -184,10 +184,10 @@ function readSettings(ss) {
 function readTrackerRows(ss) {
   var sheet = ss.getSheetByName(TRACKER_SHEET);
   if (!sheet) {
-    showError(
-      "Missing sheet: "" + TRACKER_SHEET + """,
-      "Please create a sheet named "" + TRACKER_SHEET + "" with your application rows.\n\nSee the README for the column layout."
-    );
+  showError(
+    "Missing sheet: \"" + TRACKER_SHEET + "\"",
+    "Please create a sheet named \"" + TRACKER_SHEET + "\" with your application rows.\n\nSee the README for the column layout."
+  );
     return null;
   }
 
@@ -298,9 +298,9 @@ function friendlyErrorMessage(statusCode, rawError) {
   switch (statusCode) {
     case 401:
       return (
-        "Your license key was not recognised.\n\n" +
-        "Double-check the key in cell " + PRIVATE_KEY_CELL + " of the "" + SETTINGS_SHEET + "" sheet.\n\n" +
-        "If you just purchased, make sure you copied the full key."
+       "Your license key was not recognised.\n\n" +
+       "Double-check the key in cell " + PRIVATE_KEY_CELL + " of the \"" + SETTINGS_SHEET + "\" sheet.\n\n" +
+       "If you just purchased, make sure you copied the full key."
       );
     case 402:
       return (
