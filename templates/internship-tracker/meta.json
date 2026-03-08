@@ -1,0 +1,13 @@
+{
+  "slug": "internship-tracker",
+  "name": "Internship Tracker",
+  "description": "AI-powered Google Sheet to organize and supercharge your internship search.",
+  "category": "career",
+  "price_cents": 999,
+  "prompt_inputs_schema": {
+    "target_roles": "array of strings",
+    "industries": "array of strings",
+    "application_count": "number",
+    "skills": "array of strings"
+  }
+}
