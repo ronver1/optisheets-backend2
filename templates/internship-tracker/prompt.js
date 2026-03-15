@@ -4,63 +4,63 @@
 // System prompt (static)
 // ---------------------------------------------------------------------------
 const SYSTEM_PROMPT =
-  'You are a recruiting coach helping college students land internships. ' +
-  'Given a student\'s application tracker data, give concise actionable recommendations. ' +
-  'Cover: which applications to follow up on urgently, interview prep for active stages, ' +
-  'pipeline weak spots (low response rate, stalled stages), and concrete next steps. ' +
-  'Be specific. Use short labeled sections. Plain text only. 400 words max.';
+  'You are a supportive but honest internship search coach for college students. ' +
+  'You will receive a JSON array of internship application rows. Each row uses these exact keys: ' +
+  '"Company Name", "Role/Position Title", "Industry", "Location", "Application Status" ' +
+  '(one of: Applying, In Progress, Applied), "Recruiter Name", "Recruiter Email", ' +
+  '"Interview Status" (one of: None, Phone Screen, Video Interview, In-Person Interview), ' +
+  '"Personal Satisfaction" (integer 1–5, higher = more interested), "Notes". ' +
+  'Analyze the full set of applications and provide a structured response with these labeled sections:\n' +
+  '1. PRIORITY FOLLOW-UPS: Identify which applications deserve the most immediate attention based on Interview Status and Application Status. Include specific suggested actions (e.g. send thank-you email, follow up with recruiter, prepare for next round).\n' +
+  '2. LOW SATISFACTION FLAGS: Flag any roles where Personal Satisfaction is 1 or 2. Give an honest recommendation on whether to keep pursuing each one.\n' +
+  '3. NEXT STEPS BY COMPANY: For each company with an active application, suggest one concrete next action.\n' +
+  '4. PATTERNS & INSIGHTS: Identify trends across the applications — e.g. which industries or roles are getting more traction, gaps in the pipeline, or missing recruiter contact info.\n' +
+  '5. OVERALL STRATEGY: Give one overarching recommendation to improve the student\'s chances of receiving an offer.\n' +
+  'Be specific, encouraging, and direct. Use plain text only. 500 words max.';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-/**
- * Sort applications so active/late-stage ones come first.
- * Unknown statuses go to the end.
- */
-const STATUS_ORDER = [
-  'Offer',
-  'Final Round',
-  'Onsite',
-  'Technical Screen',
+const INTERVIEW_STATUS_ORDER = [
+  'In-Person Interview',
+  'Video Interview',
   'Phone Screen',
-  'Applied',
-  'Rejected',
-  'Withdrawn',
+  'None',
 ];
 
-function rankStatus(status = '') {
-  const idx = STATUS_ORDER.findIndex(
-    (s) => s.toLowerCase() === status.toLowerCase()
+const APPLICATION_STATUS_ORDER = [
+  'Applied',
+  'In Progress',
+  'Applying',
+];
+
+function rankRow(row) {
+  const interviewRank = INTERVIEW_STATUS_ORDER.findIndex(
+    (s) => s.toLowerCase() === (row['Interview Status'] || '').toLowerCase()
   );
-  return idx === -1 ? STATUS_ORDER.length : idx;
+  const appRank = APPLICATION_STATUS_ORDER.findIndex(
+    (s) => s.toLowerCase() === (row['Application Status'] || '').toLowerCase()
+  );
+  // Lower index = higher priority; use combined rank
+  return (interviewRank === -1 ? INTERVIEW_STATUS_ORDER.length : interviewRank) * 10 +
+         (appRank === -1 ? APPLICATION_STATUS_ORDER.length : appRank);
 }
 
 /**
- * Render one application row as a single line.
- * Keeps notes capped at 80 chars to contain token bloat.
+ * Fit as many rows as possible inside charBudget characters.
  */
-function renderApp(app) {
-  const parts = [`- ${app.company || '?'} | ${app.role || '?'} | ${app.status || '?'}`];
-  if (app.appliedDate) parts.push(`| Applied: ${app.appliedDate}`);
-  if (app.notes) parts.push(`| Notes: ${String(app.notes).slice(0, 80)}`);
-  return parts.join(' ');
-}
-
-/**
- * Fit as many application rows as possible inside charBudget characters.
- */
-function fitApplications(apps, charBudget) {
-  const sorted = [...apps].sort((a, b) => rankStatus(a.status) - rankStatus(b.status));
+function fitRows(rows, charBudget) {
+  const sorted = [...rows].sort((a, b) => rankRow(a) - rankRow(b));
   const lines = [];
   let used = 0;
-  for (const app of sorted) {
-    const line = renderApp(app);
-    if (used + line.length + 1 > charBudget) break; // +1 for newline
+  for (const row of sorted) {
+    const line = JSON.stringify(row);
+    if (used + line.length + 2 > charBudget) break; // +2 for comma+newline
     lines.push(line);
-    used += line.length + 1;
+    used += line.length + 2;
   }
-  return { text: lines.join('\n'), shown: lines.length, total: apps.length };
+  return { lines, shown: lines.length, total: rows.length };
 }
 
 // ---------------------------------------------------------------------------
@@ -71,50 +71,30 @@ function fitApplications(apps, charBudget) {
  * Build the OpenAI messages payload for the internship-tracker template.
  * Total prompt is capped to ~1000 input tokens (~4000 chars).
  *
- * @param {object}   userData
- * @param {Array}    userData.applications          - List of application objects
- * @param {string}   userData.applications[].company
- * @param {string}   userData.applications[].role
- * @param {string}   userData.applications[].status  - e.g. "Applied" | "Phone Screen" |
- *                                                      "Technical Screen" | "Onsite" |
- *                                                      "Final Round" | "Offer" |
- *                                                      "Rejected" | "Withdrawn"
- * @param {string}   [userData.applications[].appliedDate] - ISO date string (YYYY-MM-DD)
- * @param {string}   [userData.applications[].notes]       - Free-text notes (truncated at 80 chars)
- * @param {string}   [userData.targetRole]    - e.g. "Software Engineering Intern"
- * @param {string}   [userData.targetSeason]  - e.g. "Summer 2026"
- * @param {number}   [userData.targetCount]   - How many offers the student is aiming for
+ * @param {object} userData
+ * @param {Array}  userData.prompt_inputs  - Array of row objects with the 10 column keys
  *
  * @returns {{ system: string, user: string }}
  */
 function buildPrompt(userData) {
-  const {
-    applications = [],
-    targetRole = 'internship',
-    targetSeason = '',
-    targetCount = null,
-  } = userData || {};
+  const { prompt_inputs = [] } = userData || {};
 
   // Token budget: 1000 tokens ≈ 4000 chars total.
-  // SYSTEM_PROMPT ≈ 280 chars; preamble+footer ≈ 200 chars → ~3520 chars for app rows.
-  const APP_CHAR_BUDGET = 3520;
+  // SYSTEM_PROMPT ≈ 600 chars; preamble+footer ≈ 150 chars → ~3250 chars for row data.
+  const ROW_CHAR_BUDGET = 3250;
 
-  const { text: appBlock, shown, total } = fitApplications(applications, APP_CHAR_BUDGET);
+  const { lines, shown, total } = fitRows(prompt_inputs, ROW_CHAR_BUDGET);
 
   const truncationNote =
-    shown < total ? `\n(${shown} of ${total} applications shown; remainder omitted for length.)` : '';
-
-  const header = [
-    `I am tracking my ${targetRole} search`,
-    targetSeason ? ` for ${targetSeason}` : '',
-    targetCount ? ` (targeting ${targetCount} offer${targetCount !== 1 ? 's' : ''})` : '',
-    '.',
-  ].join('');
+    shown < total
+      ? `\n(${shown} of ${total} rows shown; oldest/lowest-priority rows omitted for length.)`
+      : '';
 
   const user =
-    `${header}\n\n` +
-    `Applications (active stages first):\n${appBlock}${truncationNote}\n\n` +
-    `Give me specific, actionable recruiting recommendations based on this data.`;
+    `Here are my internship applications:\n\n` +
+    `[\n${lines.join(',\n')}\n]` +
+    truncationNote +
+    `\n\nPlease give me personalized recommendations based on this data.`;
 
   return { system: SYSTEM_PROMPT, user };
 }

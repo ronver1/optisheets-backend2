@@ -12,46 +12,70 @@
 //      "Settings"  — configuration cells (see SETTINGS SHEET LAYOUT below)
 //      "Tracker"   — your internship application rows (see TRACKER SHEET LAYOUT below)
 //
-// 3. "AI Recommendations" will be created automatically on first run.
+// 3. Run "Setup Tracker Sheet" from the OptiSheets AI menu to create headers
+//    and configure data validation automatically.
+//
+// 4. "AI Recommendations" will be created automatically on first run.
 //
 // SETTINGS SHEET LAYOUT
 // ---------------------
-//   A2: "License Key"       B2: <your private key>
-//   A3: "Target Role"       B3: Software Engineering Intern   (optional)
-//   A4: "Target Season"     B4: Summer 2026                   (optional)
-//   A5: "Target Count"      B5: 3                             (optional, number)
+//   A2: "License Key"   B2: <your private key>
 //
 // TRACKER SHEET LAYOUT
 // --------------------
-//   Row 1 = headers (skipped automatically)
-//   Col A: Company
-//   Col B: Role
-//   Col C: Status   (Applied | Phone Screen | Technical Screen | Onsite |
-//                    Final Round | Offer | Rejected | Withdrawn)
-//   Col D: Applied Date  (any date format; stored as YYYY-MM-DD)
-//   Col E: Notes         (free text, truncated server-side at 80 chars)
+//   Row 1 = headers (set automatically by "Setup Tracker Sheet")
+//   Col A: Company Name
+//   Col B: Role/Position Title
+//   Col C: Industry
+//   Col D: Location
+//   Col E: Application Status   (Applying | In Progress | Applied)
+//   Col F: Recruiter Name
+//   Col G: Recruiter Email
+//   Col H: Interview Status     (None | Phone Screen | Video Interview | In-Person Interview)
+//   Col I: Personal Satisfaction (integer 1–5)
+//   Col J: Notes
 // =============================================================================
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-/** Must match templates/internship-tracker/prompt.js → SYSTEM_PROMPT */
-var SYSTEM_PROMPT =
-  "You are a recruiting coach helping college students land internships. " +
-  "Given a student's application tracker data, give concise actionable recommendations. " +
-  "Cover: which applications to follow up on urgently, interview prep for active stages, " +
-  "pipeline weak spots (low response rate, stalled stages), and concrete next steps. " +
-  "Be specific. Use short labeled sections. Plain text only. 400 words max.";
-
 var TEMPLATE_ID       = "internship-tracker";
 var SETTINGS_SHEET    = "Settings";
 var TRACKER_SHEET     = "Tracker";
 var OUTPUT_SHEET      = "AI Recommendations";
 var PRIVATE_KEY_CELL  = "B2";
-var TARGET_ROLE_CELL  = "B3";
-var TARGET_SEASON_CELL = "B4";
-var TARGET_COUNT_CELL = "B5";
+
+/** Exact column headers — must match meta.json column names */
+var TRACKER_HEADERS = [
+  "Company Name",
+  "Role/Position Title",
+  "Industry",
+  "Location",
+  "Application Status",
+  "Recruiter Name",
+  "Recruiter Email",
+  "Interview Status",
+  "Personal Satisfaction",
+  "Notes"
+];
+
+var APPLICATION_STATUS_OPTIONS = ["Applying", "In Progress", "Applied"];
+var INTERVIEW_STATUS_OPTIONS   = ["None", "Phone Screen", "Video Interview", "In-Person Interview"];
+
+// Column indices (1-based) matching TRACKER_HEADERS order
+var COL_COMPANY_NAME          = 1;
+var COL_ROLE_TITLE            = 2;
+var COL_INDUSTRY              = 3;
+var COL_LOCATION              = 4;
+var COL_APPLICATION_STATUS    = 5;
+var COL_RECRUITER_NAME        = 6;
+var COL_RECRUITER_EMAIL       = 7;
+var COL_INTERVIEW_STATUS      = 8;
+var COL_PERSONAL_SATISFACTION = 9;
+var COL_NOTES                 = 10;
+
+var NUM_COLUMNS = 10;
 
 // ---------------------------------------------------------------------------
 // Menu
@@ -60,10 +84,77 @@ var TARGET_COUNT_CELL = "B5";
 function onOpen() {
   SpreadsheetApp.getActiveSpreadsheet()
     .addMenu("OptiSheets AI", [
-      { name: "Get AI Recommendations", functionName: "getAIRecommendations" },
+      { name: "Get AI Recommendations",  functionName: "getAIRecommendations" },
+      { name: "Setup Tracker Sheet",     functionName: "setupTrackerSheet" },
       null, // separator
-      { name: "About / Setup Help",     functionName: "showSetupHelp" },
+      { name: "About / Setup Help",      functionName: "showSetupHelp" },
     ]);
+}
+
+// ---------------------------------------------------------------------------
+// Setup: create headers and data validation
+// ---------------------------------------------------------------------------
+
+/**
+ * Creates or resets the Tracker sheet headers and configures data validation
+ * for Application Status, Interview Status, and Personal Satisfaction columns.
+ */
+function setupTrackerSheet() {
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(TRACKER_SHEET);
+
+  if (!sheet) {
+    sheet = ss.insertSheet(TRACKER_SHEET);
+  }
+
+  // ── Write headers ─────────────────────────────────────────────────────────
+  sheet.getRange(1, 1, 1, NUM_COLUMNS).setValues([TRACKER_HEADERS]);
+  sheet.getRange(1, 1, 1, NUM_COLUMNS)
+    .setFontWeight("bold")
+    .setBackground("#E8F0FE");
+
+  sheet.setFrozenRows(1);
+  sheet.setColumnWidth(COL_COMPANY_NAME,          160);
+  sheet.setColumnWidth(COL_ROLE_TITLE,            180);
+  sheet.setColumnWidth(COL_INDUSTRY,              130);
+  sheet.setColumnWidth(COL_LOCATION,              130);
+  sheet.setColumnWidth(COL_APPLICATION_STATUS,    150);
+  sheet.setColumnWidth(COL_RECRUITER_NAME,        140);
+  sheet.setColumnWidth(COL_RECRUITER_EMAIL,       180);
+  sheet.setColumnWidth(COL_INTERVIEW_STATUS,      180);
+  sheet.setColumnWidth(COL_PERSONAL_SATISFACTION, 160);
+  sheet.setColumnWidth(COL_NOTES,                 220);
+
+  var lastDataRow = Math.max(sheet.getMaxRows(), 100);
+
+  // ── Application Status dropdown (col E) ───────────────────────────────────
+  var appStatusRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(APPLICATION_STATUS_OPTIONS, true)
+    .setAllowInvalid(false)
+    .setHelpText("Choose: " + APPLICATION_STATUS_OPTIONS.join(", "))
+    .build();
+  sheet.getRange(2, COL_APPLICATION_STATUS, lastDataRow - 1, 1)
+    .setDataValidation(appStatusRule);
+
+  // ── Interview Status dropdown (col H) ────────────────────────────────────
+  var interviewStatusRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(INTERVIEW_STATUS_OPTIONS, true)
+    .setAllowInvalid(false)
+    .setHelpText("Choose: " + INTERVIEW_STATUS_OPTIONS.join(", "))
+    .build();
+  sheet.getRange(2, COL_INTERVIEW_STATUS, lastDataRow - 1, 1)
+    .setDataValidation(interviewStatusRule);
+
+  // ── Personal Satisfaction integer 1–5 (col I) ────────────────────────────
+  var satisfactionRule = SpreadsheetApp.newDataValidation()
+    .requireNumberBetween(1, 5)
+    .setAllowInvalid(false)
+    .setHelpText("Enter a whole number from 1 (low) to 5 (high)")
+    .build();
+  sheet.getRange(2, COL_PERSONAL_SATISFACTION, lastDataRow - 1, 1)
+    .setDataValidation(satisfactionRule);
+
+  ss.toast("Tracker sheet is ready! Fill in your applications starting at row 2.", "OptiSheets AI", 6);
 }
 
 // ---------------------------------------------------------------------------
@@ -79,9 +170,9 @@ function getAIRecommendations() {
   if (!settings) return; // readSettings already showed an alert
 
   // ── 2. Read tracker rows ──────────────────────────────────────────────────
-  var applications = readTrackerRows(ss);
-  if (applications === null) return; // readTrackerRows already showed an alert
-  if (applications.length === 0) {
+  var rows = readTrackerRows(ss);
+  if (rows === null) return; // readTrackerRows already showed an alert
+  if (rows.length === 0) {
     showError(
       "No applications found",
       "Your Tracker sheet appears to be empty. Add some rows and try again."
@@ -90,29 +181,44 @@ function getAIRecommendations() {
   }
 
   // ── 3. Build request payload ──────────────────────────────────────────────
-  var userData = {
-    applications:  applications,
-    targetRole:    settings.targetRole   || "internship",
-    targetSeason:  settings.targetSeason || "",
-    targetCount:   settings.targetCount  || null,
-  };
-
   var payload = {
     private_key:   settings.privateKey,
     template_id:   TEMPLATE_ID,
-    user_data:     userData,
-    system_prompt: SYSTEM_PROMPT,
+    user_data:     { prompt_inputs: rows },
+    system_prompt: buildSystemPrompt(),
   };
 
   // ── 4. Call backend ───────────────────────────────────────────────────────
-  ss.toast("Calling OptiSheets AI (" + applications.length + " applications)…", "OptiSheets AI", 30);
+  ss.toast("Calling OptiSheets AI (" + rows.length + " applications)…", "OptiSheets AI", 30);
 
   var result = callBackend(settings.baseUrl, payload);
   if (!result) return; // callBackend already showed an alert
 
   // ── 5. Write output ───────────────────────────────────────────────────────
-  writeOutput(ss, result, applications.length);
+  writeOutput(ss, result, rows.length);
   ss.toast("Done! " + result.remaining_credits + " credit(s) remaining.", "OptiSheets AI", 8);
+}
+
+// ---------------------------------------------------------------------------
+// Build system prompt (mirrors prompt.js SYSTEM_PROMPT)
+// ---------------------------------------------------------------------------
+
+function buildSystemPrompt() {
+  return (
+    "You are a supportive but honest internship search coach for college students. " +
+    "You will receive a JSON array of internship application rows. Each row uses these exact keys: " +
+    "\"Company Name\", \"Role/Position Title\", \"Industry\", \"Location\", \"Application Status\" " +
+    "(one of: Applying, In Progress, Applied), \"Recruiter Name\", \"Recruiter Email\", " +
+    "\"Interview Status\" (one of: None, Phone Screen, Video Interview, In-Person Interview), " +
+    "\"Personal Satisfaction\" (integer 1-5, higher = more interested), \"Notes\". " +
+    "Analyze the full set of applications and provide a structured response with these labeled sections:\n" +
+    "1. PRIORITY FOLLOW-UPS: Identify which applications deserve the most immediate attention based on Interview Status and Application Status. Include specific suggested actions (e.g. send thank-you email, follow up with recruiter, prepare for next round).\n" +
+    "2. LOW SATISFACTION FLAGS: Flag any roles where Personal Satisfaction is 1 or 2. Give an honest recommendation on whether to keep pursuing each one.\n" +
+    "3. NEXT STEPS BY COMPANY: For each company with an active application, suggest one concrete next action.\n" +
+    "4. PATTERNS & INSIGHTS: Identify trends across the applications -- e.g. which industries or roles are getting more traction, gaps in the pipeline, or missing recruiter contact info.\n" +
+    "5. OVERALL STRATEGY: Give one overarching recommendation to improve the student's chances of receiving an offer.\n" +
+    "Be specific, encouraging, and direct. Use plain text only. 500 words max."
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -120,25 +226,24 @@ function getAIRecommendations() {
 // ---------------------------------------------------------------------------
 
 /**
- * Returns { privateKey, baseUrl, targetRole, targetSeason, targetCount }
- * or null if validation fails (alert already shown).
+ * Returns { privateKey, baseUrl } or null if validation fails (alert already shown).
  */
 function readSettings(ss) {
   var sheet = ss.getSheetByName(SETTINGS_SHEET);
   if (!sheet) {
-  showError(
-    "Missing sheet: \"" + SETTINGS_SHEET + "\"",
-    "Please create a sheet named \"" + SETTINGS_SHEET + "\" with your license key in cell " + PRIVATE_KEY_CELL + ".\n\nSee the README for the full layout."
-  );
+    showError(
+      "Missing sheet: \"" + SETTINGS_SHEET + "\"",
+      "Please create a sheet named \"" + SETTINGS_SHEET + "\" with your license key in cell " + PRIVATE_KEY_CELL + ".\n\nSee the README for the full layout."
+    );
     return null;
   }
 
   var privateKey = String(sheet.getRange(PRIVATE_KEY_CELL).getValue()).trim();
   if (!privateKey) {
-  showError(
-    "License key not found",
-    "Cell " + PRIVATE_KEY_CELL + " on the \"" + SETTINGS_SHEET + "\" sheet is empty.\n\nPaste your OptiSheets license key there and try again."
-  );
+    showError(
+      "License key not found",
+      "Cell " + PRIVATE_KEY_CELL + " on the \"" + SETTINGS_SHEET + "\" sheet is empty.\n\nPaste your OptiSheets license key there and try again."
+    );
     return null;
   }
 
@@ -154,20 +259,7 @@ function readSettings(ss) {
   // Strip trailing slash so we can always append paths cleanly
   baseUrl = baseUrl.replace(/\/+$/, "");
 
-  var targetRole    = String(sheet.getRange(TARGET_ROLE_CELL).getValue()).trim()   || "";
-  var targetSeason  = String(sheet.getRange(TARGET_SEASON_CELL).getValue()).trim() || "";
-  var targetCountRaw = sheet.getRange(TARGET_COUNT_CELL).getValue();
-  var targetCount   = (targetCountRaw && !isNaN(Number(targetCountRaw)))
-    ? parseInt(Number(targetCountRaw), 10)
-    : null;
-
-  return {
-    privateKey:   privateKey,
-    baseUrl:      baseUrl,
-    targetRole:   targetRole,
-    targetSeason: targetSeason,
-    targetCount:  targetCount,
-  };
+  return { privateKey: privateKey, baseUrl: baseUrl };
 }
 
 // ---------------------------------------------------------------------------
@@ -175,68 +267,59 @@ function readSettings(ss) {
 // ---------------------------------------------------------------------------
 
 /**
- * Returns an array of application objects, or null if the sheet is missing.
- * Skips the header row (row 1) and blank rows (no company name).
+ * Returns an array of row objects using exact column names from meta.json,
+ * or null if the sheet is missing.
+ * Skips the header row (row 1) and blank rows (no Company Name).
  *
- * Expected columns:
- *   A: Company | B: Role | C: Status | D: Applied Date | E: Notes
+ * Expected columns (A–J):
+ *   Company Name | Role/Position Title | Industry | Location |
+ *   Application Status | Recruiter Name | Recruiter Email |
+ *   Interview Status | Personal Satisfaction | Notes
  */
 function readTrackerRows(ss) {
   var sheet = ss.getSheetByName(TRACKER_SHEET);
   if (!sheet) {
-  showError(
-    "Missing sheet: \"" + TRACKER_SHEET + "\"",
-    "Please create a sheet named \"" + TRACKER_SHEET + "\" with your application rows.\n\nSee the README for the column layout."
-  );
+    showError(
+      "Missing sheet: \"" + TRACKER_SHEET + "\"",
+      "Please create a sheet named \"" + TRACKER_SHEET + "\" with your application rows.\n\nRun \"Setup Tracker Sheet\" from the OptiSheets AI menu to configure it automatically."
+    );
     return null;
   }
 
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return []; // header only or empty
 
-  // Read all data rows at once (A2:E to end)
-  var data = sheet.getRange(2, 1, lastRow - 1, 5).getValues();
-  var applications = [];
+  // Read all data rows at once (columns A–J)
+  var data = sheet.getRange(2, 1, lastRow - 1, NUM_COLUMNS).getValues();
+  var rows = [];
 
   for (var i = 0; i < data.length; i++) {
     var row = data[i];
-    var company = String(row[0]).trim();
-    if (!company) continue; // skip blank rows
+    var companyName = String(row[COL_COMPANY_NAME - 1]).trim();
+    if (!companyName) continue; // skip blank rows
 
-    var appliedDateRaw = row[3];
-    var appliedDate    = formatDateCell(appliedDateRaw);
+    var satisfactionRaw = row[COL_PERSONAL_SATISFACTION - 1];
+    var satisfaction = "";
+    if (satisfactionRaw !== "" && !isNaN(Number(satisfactionRaw))) {
+      satisfaction = parseInt(Number(satisfactionRaw), 10);
+    }
 
-    var notes = String(row[4]).trim() || undefined;
+    var rowObj = {};
+    rowObj["Company Name"]          = companyName;
+    rowObj["Role/Position Title"]   = String(row[COL_ROLE_TITLE - 1]).trim()          || "";
+    rowObj["Industry"]              = String(row[COL_INDUSTRY - 1]).trim()             || "";
+    rowObj["Location"]              = String(row[COL_LOCATION - 1]).trim()             || "";
+    rowObj["Application Status"]    = String(row[COL_APPLICATION_STATUS - 1]).trim()   || "";
+    rowObj["Recruiter Name"]        = String(row[COL_RECRUITER_NAME - 1]).trim()       || "";
+    rowObj["Recruiter Email"]       = String(row[COL_RECRUITER_EMAIL - 1]).trim()      || "";
+    rowObj["Interview Status"]      = String(row[COL_INTERVIEW_STATUS - 1]).trim()     || "";
+    rowObj["Personal Satisfaction"] = satisfaction;
+    rowObj["Notes"]                 = String(row[COL_NOTES - 1]).trim()                || "";
 
-    applications.push({
-      company:     company,
-      role:        String(row[1]).trim() || "",
-      status:      String(row[2]).trim() || "",
-      appliedDate: appliedDate || undefined,
-      notes:       notes,
-    });
+    rows.push(rowObj);
   }
 
-  return applications;
-}
-
-/**
- * Converts a spreadsheet date cell value to "YYYY-MM-DD" string.
- * Returns "" if the value isn't a recognisable date.
- */
-function formatDateCell(value) {
-  if (!value) return "";
-  var d;
-  if (value instanceof Date) {
-    d = value;
-  } else {
-    d = new Date(value);
-  }
-  if (isNaN(d.getTime())) return "";
-  var yyyy = d.getUTCFullYear();
-  var mm   = String(d.getUTCMonth() + 1).padStart(2, "0");
-  var dd   = String(d.getUTCDate()).padStart(2, "0");
-  return yyyy + "-" + mm + "-" + dd;
+  return rows;
 }
 
 // ---------------------------------------------------------------------------
@@ -298,9 +381,9 @@ function friendlyErrorMessage(statusCode, rawError) {
   switch (statusCode) {
     case 401:
       return (
-       "Your license key was not recognised.\n\n" +
-       "Double-check the key in cell " + PRIVATE_KEY_CELL + " of the \"" + SETTINGS_SHEET + "\" sheet.\n\n" +
-       "If you just purchased, make sure you copied the full key."
+        "Your license key was not recognised.\n\n" +
+        "Double-check the key in cell " + PRIVATE_KEY_CELL + " of the \"" + SETTINGS_SHEET + "\" sheet.\n\n" +
+        "If you just purchased, make sure you copied the full key."
       );
     case 402:
       return (
@@ -310,7 +393,7 @@ function friendlyErrorMessage(statusCode, rawError) {
     case 413:
       return (
         "Your tracker has too many applications for a single request.\n\n" +
-        "Try removing old Rejected/Withdrawn rows and re-run, or split your tracker into smaller batches."
+        "Try removing old rows and re-run, or split your tracker into smaller batches."
       );
     case 400:
       return "Bad request: " + rawError + "\n\nThis is likely a bug — please contact support.";
@@ -333,7 +416,7 @@ function friendlyErrorMessage(statusCode, rawError) {
  * Writes AI recommendations to the "AI Recommendations" sheet.
  * Creates the sheet if it doesn't exist.
  */
-function writeOutput(ss, result, appCount) {
+function writeOutput(ss, result, rowCount) {
   var sheet = ss.getSheetByName(OUTPUT_SHEET);
   if (!sheet) {
     sheet = ss.insertSheet(OUTPUT_SHEET);
@@ -350,7 +433,7 @@ function writeOutput(ss, result, appCount) {
   var headerData = [
     ["OptiSheets AI — Internship Tracker Recommendations"],
     ["Generated: " + timestamp + cacheNote],
-    ["Applications analysed: " + appCount + "   |   Credits remaining: " + result.remaining_credits],
+    ["Applications analysed: " + rowCount + "   |   Credits remaining: " + result.remaining_credits],
     [""], // blank row spacer
   ];
 
@@ -363,7 +446,7 @@ function writeOutput(ss, result, appCount) {
   sheet.getRange(3, 1).setFontColor("#555555");
 
   // ── Recommendations text ──────────────────────────────────────────────────
-  var outputRow = headerData.length + 1; // row 5
+  var outputRow  = headerData.length + 1; // row 5
   var outputCell = sheet.getRange(outputRow, 1);
   outputCell
     .setValue(result.output)
@@ -398,24 +481,27 @@ function showSetupHelp() {
     "<table border='1' cellpadding='4' style='border-collapse:collapse'>" +
     "<tr><th>Cell</th><th>Value</th></tr>" +
     "<tr><td>B2</td><td>Your license key <b>(required)</b></td></tr>" +
-    "<tr><td>B3</td><td>Target role (e.g. <i>Software Engineering Intern</i>)</td></tr>" +
-    "<tr><td>B4</td><td>Target season (e.g. <i>Summer 2026</i>)</td></tr>" +
-    "<tr><td>B5</td><td>Number of offers you want (e.g. <i>3</i>)</td></tr>" +
     "</table><br>" +
     "<b>3. Tracker sheet columns</b><br>" +
+    "Run <b>OptiSheets AI → Setup Tracker Sheet</b> to auto-create headers and dropdowns.<br><br>" +
     "<table border='1' cellpadding='4' style='border-collapse:collapse'>" +
     "<tr><th>Column</th><th>Contents</th></tr>" +
-    "<tr><td>A</td><td>Company</td></tr>" +
-    "<tr><td>B</td><td>Role</td></tr>" +
-    "<tr><td>C</td><td>Status (Applied / Phone Screen / Technical Screen / Onsite / Final Round / Offer / Rejected / Withdrawn)</td></tr>" +
-    "<tr><td>D</td><td>Applied Date</td></tr>" +
-    "<tr><td>E</td><td>Notes</td></tr>" +
+    "<tr><td>A</td><td>Company Name</td></tr>" +
+    "<tr><td>B</td><td>Role/Position Title</td></tr>" +
+    "<tr><td>C</td><td>Industry</td></tr>" +
+    "<tr><td>D</td><td>Location</td></tr>" +
+    "<tr><td>E</td><td>Application Status (Applying / In Progress / Applied)</td></tr>" +
+    "<tr><td>F</td><td>Recruiter Name</td></tr>" +
+    "<tr><td>G</td><td>Recruiter Email</td></tr>" +
+    "<tr><td>H</td><td>Interview Status (None / Phone Screen / Video Interview / In-Person Interview)</td></tr>" +
+    "<tr><td>I</td><td>Personal Satisfaction (1 = low interest, 5 = high interest)</td></tr>" +
+    "<tr><td>J</td><td>Notes</td></tr>" +
     "</table>" +
     "<br><small>Row 1 is treated as a header and skipped automatically.</small>"
   )
     .setTitle("OptiSheets Setup Help")
-    .setWidth(540)
-    .setHeight(480);
+    .setWidth(560)
+    .setHeight(520);
 
   SpreadsheetApp.getUi().showModalDialog(html, "OptiSheets Setup Help");
 }

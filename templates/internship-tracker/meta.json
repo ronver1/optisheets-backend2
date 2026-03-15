@@ -4,10 +4,30 @@
   "description": "AI-powered Google Sheet to organize and supercharge your internship search.",
   "category": "career",
   "price_cents": 999,
-  "prompt_inputs_schema": {
-    "target_roles": "array of strings",
-    "industries": "array of strings",
-    "application_count": "number",
-    "skills": "array of strings"
-  }
+  "columns": [
+    { "name": "Company Name", "type": "text" },
+    { "name": "Role/Position Title", "type": "text" },
+    { "name": "Industry", "type": "text" },
+    { "name": "Location", "type": "text" },
+    {
+      "name": "Application Status",
+      "type": "dropdown",
+      "options": ["Applying", "In Progress", "Applied"]
+    },
+    { "name": "Recruiter Name", "type": "text" },
+    { "name": "Recruiter Email", "type": "text" },
+    {
+      "name": "Interview Status",
+      "type": "dropdown",
+      "options": ["None", "Phone Screen", "Video Interview", "In-Person Interview"]
+    },
+    {
+      "name": "Personal Satisfaction",
+      "type": "number",
+      "min": 1,
+      "max": 5,
+      "description": "How much the student likes the position (1–5)"
+    },
+    { "name": "Notes", "type": "text" }
+  ]
 }
