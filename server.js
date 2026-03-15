@@ -1,10 +1,10 @@
 require('dotenv').config();
 const express = require('express');
 
-const validateKey       = require('./validate-key');
-const getRecommendations = require('./get-recommendations');
-const addCredits        = require('./add-credits');
-const exportCsv         = require('./admin/export-csv');
+const validateKey        = require('./api/validate-key');
+const getRecommendations = require('./api/get-recommendations');
+const addCredits         = require('./api/add-credits');
+const exportCsv          = require('./api/admin/export-csv');
 
 const app = express();
 app.use(express.json());
