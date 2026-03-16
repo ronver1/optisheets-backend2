@@ -14,7 +14,6 @@ const TEMPLATES = {
   name: 'GPA & Grade Tracker',
   isAI: true,
   sheetUrl: 'https://YOUR_GOOGLE_SHEET_LINK_HERE',
-  pdfUrl: 'https://YOUR_USER_GUIDE_PDF_LINK_HERE',
   etsy_title_keywords: ['gpa and grade tracker', 'gpa grade tracker', 'gpa-and-grade-tracker'],
   },
   'workout-tracker': {
@@ -22,8 +21,14 @@ const TEMPLATES = {
   name: 'Workout & Fitness Tracker',
   isAI: true,
   sheetUrl: 'https://docs.google.com/spreadsheets/d/1IgwDj3jqerRvg7riC9sBePopxRt96Y8g5_jyTcFS-1A/edit?usp=sharing',
-  pdfUrl: 'https://YOUR_USER_GUIDE_PDF_LINK_HERE',
   etsy_title_keywords: ['workout tracker', 'fitness tracker', 'workout-tracker', 'fitness-tracker'],
+  },
+  'four-year-planner': {
+  id: 'four-year-planner',
+  name: '4-Year College Planner',
+  isAI: true,
+  sheetUrl: 'https://docs.google.com/spreadsheets/d/1wf8RpVvRjr3fcnSuuAE1DPUqcxugvR-S-OvOsy5IVW4/edit?usp=sharing',
+  etsy_title_keywords: ['four year planner', '4 year planner', 'college planner', 'four-year-planner', '4-year-planner'],
 },
 };
 

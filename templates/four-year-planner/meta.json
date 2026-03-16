@@ -1,0 +1,11 @@
+{
+  "slug": "four-year-planner",
+  "name": "4-Year College Planner",
+  "description": "AI-powered Google Sheet that builds your personalized 4-year academic plan based on your major, classes, credits, and difficulty ratings.",
+  "category": "academic",
+  "price_cents": 1499,
+  "settings_schema": {
+    "profile": ["University Name", "Major", "Minor (optional)", "Start Year", "Target GPA", "Max Credits Per Semester", "Min Credits Per Semester", "Preferred Semester Load", "Summer Semesters Available"],
+    "class_columns": ["Class Name", "Credit Hours", "Difficulty (1-10)", "Prerequisites", "Already Completed"]
+  }
+}
