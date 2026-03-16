@@ -89,6 +89,7 @@ function onOpen() {
       null, // separator
       { name: "About / Setup Help",      functionName: "showSetupHelp" },
     ]);
+  try { setupSettingsSheet(); } catch (e) { /* silent — branding only */ }
 }
 
 // ---------------------------------------------------------------------------
@@ -107,13 +108,33 @@ function setupTrackerSheet() {
     sheet = ss.insertSheet(TRACKER_SHEET);
   }
 
-  // ── Write headers ─────────────────────────────────────────────────────────
-  sheet.getRange(1, 1, 1, NUM_COLUMNS).setValues([TRACKER_HEADERS]);
-  sheet.getRange(1, 1, 1, NUM_COLUMNS)
+  // ── Insert title banner row at row 1 (shifts existing content down) ───────
+  sheet.insertRowBefore(1);
+  var bannerRange = sheet.getRange(1, 1, 1, NUM_COLUMNS);
+  bannerRange.merge()
+    .setValue("OptiSheets — Internship Tracker")
+    .setBackground("#1B5E20")
+    .setFontColor("#FFFFFF")
+    .setFontSize(16)
     .setFontWeight("bold")
-    .setBackground("#E8F0FE");
+    .setHorizontalAlignment("center")
+    .setVerticalAlignment("middle");
+  sheet.setRowHeight(1, 40);
 
-  sheet.setFrozenRows(1);
+  // ── Write headers to row 2 ────────────────────────────────────────────────
+  sheet.getRange(2, 1, 1, NUM_COLUMNS).setValues([TRACKER_HEADERS]);
+  sheet.getRange(2, 1, 1, NUM_COLUMNS)
+    .setBackground("#1B5E20")
+    .setFontColor("#FFFFFF")
+    .setFontSize(12)
+    .setFontWeight("bold")
+    .setVerticalAlignment("middle");
+  sheet.setRowHeight(2, 32);
+
+  // ── Freeze first 2 rows (banner + header) ────────────────────────────────
+  sheet.setFrozenRows(2);
+
+  // ── Column widths ─────────────────────────────────────────────────────────
   sheet.setColumnWidth(COL_COMPANY_NAME,          160);
   sheet.setColumnWidth(COL_ROLE_TITLE,            180);
   sheet.setColumnWidth(COL_INDUSTRY,              130);
@@ -125,7 +146,66 @@ function setupTrackerSheet() {
   sheet.setColumnWidth(COL_PERSONAL_SATISFACTION, 160);
   sheet.setColumnWidth(COL_NOTES,                 220);
 
+  // ── Alternating row colors (rows 3–101, data rows) ───────────────────────
+  for (var r = 3; r <= 101; r++) {
+    var rowBg = (r % 2 === 1) ? "#FFFFFF" : "#F1F8E9"; // odd = white, even = very light green
+    sheet.getRange(r, 1, 1, NUM_COLUMNS).setBackground(rowBg);
+    sheet.setRowHeight(r, 26);
+  }
+
+  // ── Column alignment ─────────────────────────────────────────────────────
+  // Left-align: A, B, C, D, F, G, J (text columns)
+  sheet.getRange(3, COL_COMPANY_NAME,       99, 1).setHorizontalAlignment("left");
+  sheet.getRange(3, COL_ROLE_TITLE,         99, 1).setHorizontalAlignment("left");
+  sheet.getRange(3, COL_INDUSTRY,           99, 1).setHorizontalAlignment("left");
+  sheet.getRange(3, COL_LOCATION,           99, 1).setHorizontalAlignment("left");
+  sheet.getRange(3, COL_RECRUITER_NAME,     99, 1).setHorizontalAlignment("left");
+  sheet.getRange(3, COL_RECRUITER_EMAIL,    99, 1).setHorizontalAlignment("left");
+  sheet.getRange(3, COL_NOTES,              99, 1).setHorizontalAlignment("left");
+  // Center-align: E, H, I (status and satisfaction columns)
+  sheet.getRange(3, COL_APPLICATION_STATUS,    99, 1).setHorizontalAlignment("center");
+  sheet.getRange(3, COL_INTERVIEW_STATUS,      99, 1).setHorizontalAlignment("center");
+  sheet.getRange(3, COL_PERSONAL_SATISFACTION, 99, 1).setHorizontalAlignment("center");
+
   var lastDataRow = Math.max(sheet.getMaxRows(), 100);
+
+  // ── Conditional formatting: Application Status (col E) ───────────────────
+  var appStatusCfRange = sheet.getRange(3, COL_APPLICATION_STATUS, lastDataRow - 2, 1);
+  var cfRules = [];
+  cfRules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenTextEqualTo("Applying")
+    .setBackground("#FFF9C4")
+    .setRanges([appStatusCfRange])
+    .build());
+  cfRules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenTextEqualTo("In Progress")
+    .setBackground("#BBDEFB")
+    .setRanges([appStatusCfRange])
+    .build());
+  cfRules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenTextEqualTo("Applied")
+    .setBackground("#C8E6C9")
+    .setRanges([appStatusCfRange])
+    .build());
+
+  // ── Conditional formatting: Personal Satisfaction (col I) ────────────────
+  var satisfactionCfRange = sheet.getRange(3, COL_PERSONAL_SATISFACTION, lastDataRow - 2, 1);
+  cfRules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenNumberBetween(1, 2)
+    .setBackground("#FFCDD2")
+    .setRanges([satisfactionCfRange])
+    .build());
+  cfRules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenNumberEqualTo(3)
+    .setBackground("#FFF9C4")
+    .setRanges([satisfactionCfRange])
+    .build());
+  cfRules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenNumberBetween(4, 5)
+    .setBackground("#C8E6C9")
+    .setRanges([satisfactionCfRange])
+    .build());
+  sheet.setConditionalFormatRules(cfRules);
 
   // ── Application Status dropdown (col E) ───────────────────────────────────
   var appStatusRule = SpreadsheetApp.newDataValidation()
@@ -133,7 +213,7 @@ function setupTrackerSheet() {
     .setAllowInvalid(false)
     .setHelpText("Choose: " + APPLICATION_STATUS_OPTIONS.join(", "))
     .build();
-  sheet.getRange(2, COL_APPLICATION_STATUS, lastDataRow - 1, 1)
+  sheet.getRange(3, COL_APPLICATION_STATUS, lastDataRow - 2, 1)
     .setDataValidation(appStatusRule);
 
   // ── Interview Status dropdown (col H) ────────────────────────────────────
@@ -142,7 +222,7 @@ function setupTrackerSheet() {
     .setAllowInvalid(false)
     .setHelpText("Choose: " + INTERVIEW_STATUS_OPTIONS.join(", "))
     .build();
-  sheet.getRange(2, COL_INTERVIEW_STATUS, lastDataRow - 1, 1)
+  sheet.getRange(3, COL_INTERVIEW_STATUS, lastDataRow - 2, 1)
     .setDataValidation(interviewStatusRule);
 
   // ── Personal Satisfaction integer 1–5 (col I) ────────────────────────────
@@ -151,10 +231,60 @@ function setupTrackerSheet() {
     .setAllowInvalid(false)
     .setHelpText("Enter a whole number from 1 (low) to 5 (high)")
     .build();
-  sheet.getRange(2, COL_PERSONAL_SATISFACTION, lastDataRow - 1, 1)
+  sheet.getRange(3, COL_PERSONAL_SATISFACTION, lastDataRow - 2, 1)
     .setDataValidation(satisfactionRule);
 
-  ss.toast("Tracker sheet is ready! Fill in your applications starting at row 2.", "OptiSheets AI", 6);
+  // ── Tab color ─────────────────────────────────────────────────────────────
+  sheet.setTabColor("#1B5E20");
+
+  // ── Brand the Settings sheet too ─────────────────────────────────────────
+  setupSettingsSheet();
+
+  ss.toast("Tracker sheet is ready! Fill in your applications starting at row 3.", "OptiSheets AI", 6);
+}
+
+// ---------------------------------------------------------------------------
+// Setup: brand the Settings sheet
+// ---------------------------------------------------------------------------
+
+/**
+ * Applies OptiSheets branding to the Settings sheet.
+ * Safe to call on every open — only touches visual/formatting properties.
+ */
+function setupSettingsSheet() {
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SETTINGS_SHEET);
+  if (!sheet) return; // Settings sheet doesn't exist yet — nothing to brand
+
+  // ── Tab color ─────────────────────────────────────────────────────────────
+  sheet.setTabColor("#388E3C");
+
+  // ── Title banner: merge A1:B1 ─────────────────────────────────────────────
+  var bannerRange = sheet.getRange("A1:B1");
+  bannerRange.merge()
+    .setValue("OptiSheets — Settings")
+    .setBackground("#1B5E20")
+    .setFontColor("#FFFFFF")
+    .setFontSize(14)
+    .setFontWeight("bold")
+    .setHorizontalAlignment("center")
+    .setVerticalAlignment("middle");
+  sheet.setRowHeight(1, 36);
+
+  // ── A2: label styling ─────────────────────────────────────────────────────
+  sheet.getRange("A2")
+    .setFontWeight("bold")
+    .setFontColor("#1B5E20");
+
+  // ── A3: instructional hint ────────────────────────────────────────────────
+  sheet.getRange("A3")
+    .setValue("Enter your license key in cell B2 to get started.")
+    .setFontColor("#757575")
+    .setFontStyle("italic");
+
+  // ── Column widths ─────────────────────────────────────────────────────────
+  sheet.setColumnWidth(1, 160); // col A
+  sheet.setColumnWidth(2, 280); // col B
 }
 
 // ---------------------------------------------------------------------------
@@ -425,11 +555,26 @@ function writeOutput(ss, result, rowCount) {
   sheet.clearContents();
   sheet.clearFormats();
 
+  // ── Tab color ─────────────────────────────────────────────────────────────
+  sheet.setTabColor("#A5D6A7");
+
+  // ── Branded banner in row 1 ───────────────────────────────────────────────
+  var bannerCell = sheet.getRange(1, 1, 1, 3);
+  bannerCell.merge()
+    .setValue("OptiSheets — AI Recommendations")
+    .setBackground("#1B5E20")
+    .setFontColor("#FFFFFF")
+    .setFontSize(14)
+    .setFontWeight("bold")
+    .setHorizontalAlignment("center")
+    .setVerticalAlignment("middle");
+  sheet.setRowHeight(1, 36);
+
   var now       = new Date();
   var timestamp = Utilities.formatDate(now, ss.getSpreadsheetTimeZone(), "MMMM d, yyyy 'at' h:mm a");
   var cacheNote = result.cached ? " (cached — no credit used)" : "";
 
-  // ── Header block ──────────────────────────────────────────────────────────
+  // ── Header block (shifted down by 1 row to accommodate banner) ───────────
   var headerData = [
     ["OptiSheets AI — Internship Tracker Recommendations"],
     ["Generated: " + timestamp + cacheNote],
@@ -437,22 +582,24 @@ function writeOutput(ss, result, rowCount) {
     [""], // blank row spacer
   ];
 
-  sheet.getRange(1, 1, headerData.length, 1).setValues(headerData);
+  sheet.getRange(2, 1, headerData.length, 1).setValues(headerData);
 
   // Title style
-  sheet.getRange(1, 1).setFontSize(14).setFontWeight("bold");
+  sheet.getRange(2, 1).setFontSize(14).setFontWeight("bold");
   // Meta line style
-  sheet.getRange(2, 1).setFontColor("#555555").setFontStyle("italic");
-  sheet.getRange(3, 1).setFontColor("#555555");
+  sheet.getRange(3, 1).setFontColor("#555555").setFontStyle("italic");
+  sheet.getRange(4, 1).setFontColor("#555555");
 
-  // ── Recommendations text ──────────────────────────────────────────────────
-  var outputRow  = headerData.length + 1; // row 5
+  // ── Recommendations text (shifted down by 1 row) ──────────────────────────
+  var outputRow  = 1 + headerData.length + 1; // row 6
   var outputCell = sheet.getRange(outputRow, 1);
   outputCell
     .setValue(result.output)
     .setWrap(true)
     .setVerticalAlignment("top")
-    .setFontSize(11);
+    .setFontSize(11)
+    .setBackground("#F1F8E9")
+    .setBorder(null, true, null, null, null, null, "#388E3C", SpreadsheetApp.BorderStyle.SOLID_THICK);
 
   // ── Column width so text is readable ─────────────────────────────────────
   sheet.setColumnWidth(1, 720);
