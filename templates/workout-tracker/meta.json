@@ -1,0 +1,19 @@
+{
+  "slug": "workout-tracker",
+  "name": "Workout & Fitness Tracker",
+  "description": "AI-powered Google Sheet to log workouts, track progress, and get personalized fitness recommendations.",
+  "category": "health",
+  "price_cents": 1299,
+  "columns": [
+    { "name": "Date", "type": "date" },
+    { "name": "Workout Type", "type": "dropdown", "options": ["Strength", "Cardio", "HIIT", "Flexibility", "Sports", "Other"] },
+    { "name": "Exercise Name", "type": "text" },
+    { "name": "Sets", "type": "number" },
+    { "name": "Reps", "type": "number" },
+    { "name": "Weight (lbs)", "type": "number" },
+    { "name": "Duration (min)", "type": "number" },
+    { "name": "Cardio Distance (miles)", "type": "number" },
+    { "name": "Perceived Effort", "type": "number", "min": 1, "max": 10, "description": "How hard was this set/exercise (1=easy, 10=max effort)" },
+    { "name": "Notes", "type": "text" }
+  ]
+}

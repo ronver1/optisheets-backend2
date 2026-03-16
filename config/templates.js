@@ -5,18 +5,26 @@ const TEMPLATES = {
     id: 'internship-tracker',
     name: 'Internship Tracker',
     isAI: true,
-    sheetUrl: 'https://docs.google.com/spreadsheets/d/1cXhCNOJxj5DE-P_h2gE1zD_jyMpwwWW9vea79ZCdX0w/edit?usp=sharing',
-    pdfUrl: 'https://docs.google.com/document/d/14oo5npJCbEuK8X3yP358kHGhW52B7dFK/edit?usp=sharing&ouid=106805336580345169290&rtpof=true&sd=true',
+    sheetUrl: 'https://docs.google.com/spreadsheets/d/127ZB9y50UFmF5RjeOddf_rKjl7TsOLsDKb3K-2ZNpWs/edit?usp=sharing',
+    pdfUrl: 'https://drive.google.com/file/d/1TLMAXyR591J8xHC7KnyTgv-PrZ-SFJWM/view?usp=sharing',
     etsy_title_keywords: ['internship tracker', 'internship-tracker'],
   },
-  'internship-tracker-standard': {
-    id: 'internship-tracker-standard',
-    name: 'Internship Tracker (Standard)',
-    isAI: false,
-    sheetUrl: 'https://placeholder.example.com/sheets/internship-tracker-standard',
-    pdfUrl: 'https://placeholder.example.com/pdf/internship-tracker-standard',
-    etsy_title_keywords: ['internship tracker standard', 'internship-tracker-standard'],
+  'gpa-and-grade-tracker': {
+  id: 'gpa-and-grade-tracker',
+  name: 'GPA & Grade Tracker',
+  isAI: true,
+  sheetUrl: 'https://YOUR_GOOGLE_SHEET_LINK_HERE',
+  pdfUrl: 'https://YOUR_USER_GUIDE_PDF_LINK_HERE',
+  etsy_title_keywords: ['gpa and grade tracker', 'gpa grade tracker', 'gpa-and-grade-tracker'],
   },
+  'workout-tracker': {
+  id: 'workout-tracker',
+  name: 'Workout & Fitness Tracker',
+  isAI: true,
+  sheetUrl: 'https://docs.google.com/spreadsheets/d/1IgwDj3jqerRvg7riC9sBePopxRt96Y8g5_jyTcFS-1A/edit?usp=sharing',
+  pdfUrl: 'https://YOUR_USER_GUIDE_PDF_LINK_HERE',
+  etsy_title_keywords: ['workout tracker', 'fitness tracker', 'workout-tracker', 'fitness-tracker'],
+},
 };
 
 const CREDIT_PACKS = {
