@@ -1,0 +1,53 @@
+{
+  "slug": "gpa-and-grade-tracker",
+  "name": "GPA & Grade Tracker",
+  "description": "AI-powered Google Sheet to track your GPA, simulate grades, and get personalized academic strategy recommendations.",
+  "category": "academic",
+  "price_cents": 1499,
+  "settings_schema": {
+    "gpa_conversion_table": [
+      { "letter_grade": "A",  "gpa_points": 4.0  },
+      { "letter_grade": "A-", "gpa_points": 3.67 },
+      { "letter_grade": "B+", "gpa_points": 3.33 },
+      { "letter_grade": "B",  "gpa_points": 3.0  },
+      { "letter_grade": "B-", "gpa_points": 2.67 },
+      { "letter_grade": "C+", "gpa_points": 2.33 },
+      { "letter_grade": "C",  "gpa_points": 2.0  },
+      { "letter_grade": "C-", "gpa_points": 1.67 },
+      { "letter_grade": "D+", "gpa_points": 1.33 },
+      { "letter_grade": "D",  "gpa_points": 1.0  },
+      { "letter_grade": "F",  "gpa_points": 0.0  }
+    ],
+    "grade_breakdown_schema": {
+      "fields": [
+        { "name": "class_name",              "type": "text" },
+        { "name": "grading_scale",           "type": "dropdown", "options": ["10-point", "7-point"] },
+        { "name": "drop_lowest_assignment",  "type": "boolean" },
+        { "name": "drop_lowest_quiz",        "type": "boolean" },
+        { "name": "extra_credit_available",  "type": "boolean" }
+      ],
+      "categories": {
+        "assignments":   { "count": true, "total_weight": true },
+        "quizzes":       { "count": true, "total_weight": true },
+        "exams":         { "count": true, "total_weight": true },
+        "projects":      { "count": true, "total_weight": true },
+        "participation": { "count": false, "total_weight": true, "fixed_count": 1 }
+      }
+    }
+  },
+  "gpa_tracker_columns": [
+    { "name": "Semester",        "type": "text" },
+    { "name": "Class Name",      "type": "text" },
+    { "name": "Credit Hours",    "type": "number" },
+    { "name": "Letter Grade",    "type": "dropdown", "options": ["A","A-","B+","B","B-","C+","C","C-","D+","D","F"] },
+    { "name": "Grade Points",    "type": "formula", "note": "auto-calculated via VLOOKUP" },
+    { "name": "Weighted Points", "type": "formula", "note": "auto-calculated as Grade Points × Credit Hours" },
+    { "name": "Notes",           "type": "text" }
+  ],
+  "cumulative_settings": {
+    "prior_credits_completed":      { "type": "number", "min": 0 },
+    "prior_cumulative_gpa":         { "type": "number", "min": 0.0, "max": 4.0 },
+    "graduation_credits_required":  { "type": "number", "min": 0 },
+    "target_gpa":                   { "type": "number", "min": 0.0, "max": 4.0 }
+  }
+}
